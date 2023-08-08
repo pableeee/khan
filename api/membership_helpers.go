@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/labstack/echo"
 	"github.com/topfreegames/khan/log"
@@ -189,6 +190,12 @@ func getPayloadAndGame(app *App, c echo.Context, logger zap.Logger) (*BasePayloa
 	if err != nil {
 		log.W(logger, "Could not find game.")
 		return nil, nil, 404, err
+	}
+
+	authPlayerID := c.Request().Header().Get("Authenticated-Player-Id")
+	if authPlayerID != "" && authPlayerID != payload.RequestorPublicID {
+		log.W(logger, "requestorID does not match authenticated ID.")
+		return nil, nil, 400, fmt.Errorf("requestorID does not match authenticated ID")
 	}
 
 	return &payload, game, 200, nil
