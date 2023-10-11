@@ -9,7 +9,7 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
+	"net/http"
 
 	"github.com/labstack/echo"
 	"github.com/topfreegames/khan/log"
@@ -192,11 +192,27 @@ func getPayloadAndGame(app *App, c echo.Context, logger zap.Logger) (*BasePayloa
 		return nil, nil, 404, err
 	}
 
-	authPlayerID := c.Request().Header().Get("Authenticated-Player-Id")
-	if authPlayerID != "" && authPlayerID != payload.RequestorPublicID {
-		log.W(logger, "requestorID does not match authenticated ID.")
-		return nil, nil, 400, fmt.Errorf("requestorID does not match authenticated ID")
-	}
-
 	return &payload, game, 200, nil
+}
+
+func ValidateMembershipUserID(app *App) echo.MiddlewareFunc {
+	logger := app.Logger
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+
+			var payload BasePayloadWithRequestorAndPlayerPublicIDs
+			if err := LoadJSONPayload(&payload, c, logger); err != nil {
+				log.W(logger, "requestorID does not match authenticated ID.")
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+
+			authPlayerID := c.Request().Header().Get("Authenticated-Player-Id")
+			if authPlayerID != "" && authPlayerID != payload.RequestorPublicID {
+				log.W(logger, "requestorID does not match authenticated ID.")
+				return echo.ErrUnauthorized
+			}
+
+			return next(c)
+		}
+	}
 }

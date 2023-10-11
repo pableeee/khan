@@ -18,6 +18,10 @@ services:
       - KHAN_POSTGRES_USER=postgres
       - KHAN_POSTGRES_PORT=5432
       - KHAN_POSTGRES_PASSWORD=123456
+      - KHAN_MONGODB_COLLECTIONTEMPLATE=clans_%s
+      - KHAN_MONGODB_ENABLED=true
+      - KHAN_MONGODB_URL=mongo:27017
+      - KHAN_MONGODB_DATABASENAME=mongodb
     healthcheck:
         test: ["CMD-SHELL", "curl --silent --fail http://localhost/healthcheck || exit 1"]
         interval: 30s
@@ -53,6 +57,10 @@ services:
       - KHAN_POSTGRES_PASSWORD=123456
       - KHAN_REDIS_HOST=redis
       - KHAN_ELASTICSEARCH_HOST=elasticsearch
+      - KHAN_MONGODB_COLLECTIONTEMPLATE=clans_%s
+      - KHAN_MONGODB_ENABLED=true
+      - KHAN_MONGODB_URL=mongo:27017
+      - KHAN_MONGODB_DATABASENAME=mongodb
     healthcheck:
         test: ["CMD-SHELL", "curl --silent --fail http://localhost/healthcheck || exit 1"]
         interval: 30s
@@ -88,6 +96,10 @@ services:
       - KHAN_POSTGRES_PASSWORD=123456
       - KHAN_REDIS_HOST=redis
       - KHAN_ELASTICSEARCH_HOST=elasticsearch
+      - KHAN_MONGODB_COLLECTIONTEMPLATE=clans_%s
+      - KHAN_MONGODB_ENABLED=true
+      - KHAN_MONGODB_URL=mongo:27017
+      - KHAN_MONGODB_DATABASENAME=mongodb
 
   postgres:
     image: postgres:12
@@ -138,6 +150,25 @@ services:
         interval: 10s
         timeout: 30s
         retries: 3
+  mongo:
+    image: mongo:5
+    container_name: tre_mongo
+    ports:
+      - "27017:27017"
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one
+    ports:
+      - "6831:6831/udp" # accepts jaeger.thrift over compact thrift protocol
+      - "6832:6832/udp" # accepts jaeger.thrift over binary thrift protocol
+      - "5778:5778/tcp" # serves configs
+      - "16686:16686/tcp" # serves frontend
+    restart: unless-stopped
+    healthcheck:
+      test: wget -O - --spider 'localhost:14269/'
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 networks:
   wildlife-services: 

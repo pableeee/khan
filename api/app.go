@@ -72,6 +72,8 @@ type App struct {
 	db                  gorp.Database
 }
 
+type UserIDProvider func(echo.Context) (string, error)
+
 // GetApp returns a new Khan API Application
 func GetApp(host string, port int, configPath string, debug bool, logger zap.Logger, fast, test bool) *App {
 	app := &App{
@@ -395,12 +397,12 @@ func (app *App) configureApplication() {
 
 	//// Membership Routes
 	a.Post("/games/:gameID/clans/:clanPublicID/memberships/application", ApplyForMembershipHandler(app))
-	a.Post("/games/:gameID/clans/:clanPublicID/memberships/application/:action", ApproveOrDenyMembershipApplicationHandler(app))
+	a.Post("/games/:gameID/clans/:clanPublicID/memberships/application/:action", ApproveOrDenyMembershipApplicationHandler(app), ValidateMembershipUserID(app))
 	a.Post("/games/:gameID/clans/:clanPublicID/memberships/invitation", InviteForMembershipHandler(app))
 	a.Post("/games/:gameID/clans/:clanPublicID/memberships/invitation/:action", ApproveOrDenyMembershipInvitationHandler(app))
-	a.Post("/games/:gameID/clans/:clanPublicID/memberships/delete", DeleteMembershipHandler(app))
-	a.Post("/games/:gameID/clans/:clanPublicID/memberships/promote", PromoteOrDemoteMembershipHandler(app, "promote"))
-	a.Post("/games/:gameID/clans/:clanPublicID/memberships/demote", PromoteOrDemoteMembershipHandler(app, "demote"))
+	a.Post("/games/:gameID/clans/:clanPublicID/memberships/delete", DeleteMembershipHandler(app), ValidateMembershipUserID(app))
+	a.Post("/games/:gameID/clans/:clanPublicID/memberships/promote", PromoteOrDemoteMembershipHandler(app, "promote"), ValidateMembershipUserID(app))
+	a.Post("/games/:gameID/clans/:clanPublicID/memberships/demote", PromoteOrDemoteMembershipHandler(app, "demote"), ValidateMembershipUserID(app))
 
 	app.Errors = metrics.NewEWMA15()
 
@@ -414,7 +416,7 @@ func (app *App) addError() {
 	app.Errors.Update(1)
 }
 
-//GetHooks returns all available hooks
+// GetHooks returns all available hooks
 func (app *App) GetHooks(ctx context.Context) map[string]map[int][]*models.Hook {
 	logger := app.Logger.With(
 		zap.String("source", "app"),
@@ -448,7 +450,7 @@ func (app *App) GetHooks(ctx context.Context) map[string]map[int][]*models.Hook 
 	return hooks
 }
 
-//GetGame returns a game by Public ID
+// GetGame returns a game by Public ID
 func (app *App) GetGame(ctx context.Context, gameID string) (*models.Game, error) {
 	logger := app.Logger.With(
 		zap.String("source", "app"),
@@ -528,7 +530,7 @@ func (app *App) configureGoWorkers() {
 	logger.Info("Worker configured.")
 }
 
-//StartWorkers "starts" the dispatcher
+// StartWorkers "starts" the dispatcher
 func (app *App) StartWorkers() {
 	logger := app.Logger.With(
 		zap.String("source", "app"),
@@ -616,7 +618,7 @@ func (app *App) finalizeApp() {
 	log.I(logger, "DB connection closed succesfully.")
 }
 
-//BeginTrans in the current Db connection
+// BeginTrans in the current Db connection
 func (app *App) BeginTrans(ctx context.Context, logger zap.Logger) (gorp.Transaction, error) {
 	log.D(logger, "Beginning DB tx...")
 	tx, err := app.Db(ctx).Begin()
@@ -630,7 +632,7 @@ func (app *App) BeginTrans(ctx context.Context, logger zap.Logger) (gorp.Transac
 	return tx, nil
 }
 
-//Rollback transaction
+// Rollback transaction
 func (app *App) Rollback(tx gorp.Transaction, msg string, c echo.Context, logger zap.Logger, err error) error {
 	txErr := tx.Rollback()
 	if txErr != nil {
@@ -642,7 +644,7 @@ func (app *App) Rollback(tx gorp.Transaction, msg string, c echo.Context, logger
 	return nil
 }
 
-//Commit transaction
+// Commit transaction
 func (app *App) Commit(tx gorp.Transaction, msg string, c echo.Context, logger zap.Logger) error {
 	txErr := tx.Commit()
 	if txErr != nil {

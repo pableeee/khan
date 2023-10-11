@@ -263,21 +263,15 @@ func ApproveOrDenyMembershipApplicationHandler(app *App) func(c echo.Context) er
 			zap.String("action", action),
 		)
 
-		var payload BasePayloadWithRequestorAndPlayerPublicIDs
-		if err := LoadJSONPayload(&payload, c, logger); err != nil {
-			return FailWith(400, err.Error(), c)
+		payload, game, status, err := getPayloadAndGame(app, c, logger)
+		if err != nil {
+			return FailWith(status, err.Error(), c)
 		}
 
 		logger = logger.With(
 			zap.String("playerPublicID", payload.PlayerPublicID),
 			zap.String("requestorPublicID", payload.RequestorPublicID),
 		)
-
-		game, err := app.GetGame(c.StdContext(), gameID)
-		if err != nil {
-			log.W(logger, "Could not find game.")
-			return FailWith(404, err.Error(), c)
-		}
 
 		tx, err := app.BeginTrans(c.StdContext(), logger)
 		if err != nil {
@@ -401,21 +395,14 @@ func ApproveOrDenyMembershipInvitationHandler(app *App) func(c echo.Context) err
 			zap.String("action", action),
 		)
 
-		var payload ApproveOrDenyMembershipInvitationPayload
-		err = LoadJSONPayload(&payload, c, logger)
+		payload, game, status, err := getPayloadAndGame(app, c, logger)
 		if err != nil {
-			return FailWith(400, err.Error(), c)
+			return FailWith(status, err.Error(), c)
 		}
 
 		logger = logger.With(
 			zap.String("playerPublicID", payload.PlayerPublicID),
 		)
-
-		game, err := app.GetGame(c.StdContext(), gameID)
-		if err != nil {
-			log.W(logger, "Could not find game.")
-			return FailWith(404, err.Error(), c)
-		}
 
 		rollback := func(err error) error {
 			txErr := app.Rollback(tx, "Approving/Denying membership invitation failed", c, logger, err)
